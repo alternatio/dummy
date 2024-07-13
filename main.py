@@ -1,32 +1,47 @@
 from flask import Flask, request, jsonify
-from audioplayer import AudioPlayer
+import os
 import threading
+import pygame
 
 app = Flask(__name__)
 
-# method of play audio
+# Папка для загрузки файлов
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 def play_audio(sound_path):
-  try:
-    player = AudioPlayer(sound_path)
-    player.play(block=True)
-  except Exception as e:
-    print(f"Error playing audio: {e}")
+    try:
+        print(f"Attempting to play audio from: {sound_path}")
+        if os.path.exists(sound_path):
+            pygame.mixer.init()
+            pygame.mixer.music.load(sound_path)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+              pygame.time.Clock().tick(10)
+        else:
+            print(f"File does not exist: {sound_path}")
+    except Exception as e:
+        print(f"Error playing audio: {e}")
 
-@app.rout('/')
+@app.route('/', methods=['POST'])
 def start():
-  return 'Hello!'
+    return 'Hello'
 
-# request to play sound
 @app.route('/play', methods=['POST'])
-def play():
-  data = request.json
-  sound_path = data.get('soundPath')
-  if not sound_path:
-    return jsonify({"error": "No sound path provided"}), 400
-  
-  # Create a new thread for playing the audio
-  threading.Thread(target=play_audio, args=(sound_path,)).start()
-  return jsonify({"message": f"Playing sound: {sound_path}"}), 200
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    if file:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        print(f"Saving file to: {file_path}")
+        file.save(file_path)
+        threading.Thread(target=play_audio, args=(file_path,)).start()
+        file.close()
+        return jsonify({"message": f"File uploaded and playing: {file.filename}"}), 200
 
 if __name__ == '__main__':
-  app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000)
