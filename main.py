@@ -12,9 +12,13 @@ def play_audio(sound_path):
   except Exception as e:
     print(f"Error playing audio: {e}")
 
+@app.rout('/')
+def start():
+  return 'Hello!'
+
 # request to play sound
 @app.route('/play', methods=['POST'])
-def start():
+def play():
   data = request.json
   sound_path = data.get('soundPath')
   if not sound_path:
