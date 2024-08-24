@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import os
 import threading
 import pygame
+import uuid
 
 app = Flask(__name__)
 
@@ -18,7 +19,7 @@ def play_audio(sound_path):
             pygame.mixer.music.load(sound_path)
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy():
-              pygame.time.Clock().tick(10)
+                pygame.time.Clock().tick(10)
         else:
             print(f"File does not exist: {sound_path}")
     except Exception as e:
@@ -36,9 +37,18 @@ def upload_file():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
     if file:
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        # Создаем уникальную папку для файла
+        unique_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(uuid.uuid4()))
+        os.makedirs(unique_folder, exist_ok=True)
+        
+        # Полный путь до файла в уникальной папке
+        file_path = os.path.join(unique_folder, file.filename)
         print(f"Saving file to: {file_path}")
+        
+        # Сохраняем файл
         file.save(file_path)
+        
+        # Запускаем воспроизведение файла в отдельном потоке
         threading.Thread(target=play_audio, args=(file_path,)).start()
         file.close()
         return jsonify({"message": f"File uploaded and playing: {file.filename}"}), 200
